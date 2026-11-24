@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>¿Aceptado o Rechazado? Simulador de Moderación de Mods</title>
+<style>
+:root{--bg:#16181c;--card:#1f2228;--g:#1bd96a;--r:#ff496e;--y:#ffd24a;--t:#e9ecf1;--m:#8b93a1}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--t);font-family:system-ui,sans-serif;min-height:100vh;display:flex;justify-content:center}
+#app{width:100%;max-width:720px;padding:16px}
+h1{font-size:26px;margin:8px 0}
+.card{background:var(--card);border-radius:14px;padding:16px;margin:12px 0}
+button{font:inherit;background:#2b303a;color:var(--t);border:2px solid #3a404d;border-radius:10px;padding:10px 14px;cursor:pointer;margin:4px 4px 4px 0}
+button:hover{border-color:var(--g)}
+button.big{background:var(--g);color:#06210f;font-weight:700;border-color:var(--g);font-size:18px}
+button.sel{border-color:var(--g);background:#1d3a2b}
+input{font:inherit;background:#111;color:var(--t);border:2px solid #3a404d;border-radius:10px;padding:10px;width:100%}
+.bar{height:14px;background:#111;border-radius:8px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--g);transition:width .3s}
+.m{color:var(--m);font-size:14px}
+.ok{color:var(--g)}.no{color:var(--r)}
+#arena{position:relative;height:300px;background:#111;border-radius:12px;overflow:hidden;touch-action:manipulation;user-select:none}
+.bug{position:absolute;padding:6px 10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.bug.bad{background:var(--r);color:#fff}.bug.good{background:var(--y);color:#222}
+.stamp{font-size:48px;font-weight:900;text-align:center;transform:rotate(-6deg);margin:10px 0}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(()=>{
+const $=s=>document.querySelector(s),app=$('#app');
+const pick=a=>a[Math.random()*a.length|0];
+let S;
+function fresh(){S={name:'',type:null,q:0,luck:0,log:[],round:0,best:+localStorage.getItem('best')||0}}
+fresh();
+
+const TYPES=[
+ {id:'opt',n:'⚡ Mod de optimización',b:10,d:'Todos lo quieren, pero ya hay 47 iguales.'},
+ {id:'content',n:'🗡️ Mod de contenido (armas, mobs)',b:5,d:'Mucho trabajo, mucho pedo con las texturas.'},
+ {id:'meme',n:'🤡 Mod meme (vaca explosiva)',b:-5,d:'El moderador te va a mirar feo.'},
+ {id:'copy',n:'📦 "Mod" que reempaqueté de otro',b:-40,d:'Mala idea, te lo digo como amigo.'}
+];
+
+const STEPS=[
+ {t:'📝 Descripción del mod',o:[
+  ['Redactada en serio, con capturas y características',12,'Descripción bien hecha 👌'],
+  ['"mod bueno descarga plz"',-12,'Descripción de una línea. Cringe.'],
+  ['Copiada con ChatGPT sin revisar',-4,'Sonaba a robot, pero al menos hay texto.'],
+  ['Un muro de emojis 🔥🔥🔥💀💀',-8,'Ilegible. Los moderadores lloraron.']]},
+ {t:'⚖️ Licencia',o:[
+  ['MIT / GPL / la que corresponda, bien puesta',14,'Licencia clara.'],
+  ['No pongo licencia, vibras nada más',-14,'Sin licencia = problemas.'],
+  ['Pongo una licencia inventada: "Licencia del Pibe"',-10,'Los abogados se rieron.']]},
+ {t:'🖼️ Icono y galería',o:[
+  ['Icono original hecho por mí',12,'Icono propio, respeto.'],
+  ['Saqué la imagen de Google',-15,'Imagen con copyright. Mal.'],
+  ['Cuadro gris, no me dio tiempo',-6,'Minimalismo o flojera.']]},
+ {t:'🧪 Pruebas',o:[
+  ['Probé en 3 versiones y con otros mods',16,'Probado como Dios manda.'],
+  ['En mi PC funciona, listo 🤷',-8,'Famosa frase maldita.'],
+  ['Probé con 200 mods y crasheó, pero lo subo igual',-18,'Subiste un crash.']]},
+ {t:'📜 Changelog y versión',o:[
+  ['Changelog claro y versión semántica 1.0.0',10,'Prolijo.'],
+  ['Versión "final_FINAL_v2(1)"',-8,'Nombre de archivo clásico.'],
+  ['Sin changelog',-5,'Cero info.']]}
+];
+
+function screen(h){app.innerHTML=h}
+function hud(){return `<div class="m">Mod: <b>${S.name||'?'}</b> · Mejor puntaje: ${S.best}</div>`}
+
+function start(){
+  fresh();
+  screen(`<h1>¿ACEPTADO O RECHAZADO? 😈</h1>
+  <p class="m">Simulador de subir tu mod a una plataforma de mods y esperar el veredicto de los moderadores. Parodia, no oficial.</p>
+  <div class="card"><b>Nombre de tu mod</b><br><br><input id="nm" maxlength="30" placeholder="Ej: SuperMegaCows" value=""></div>
+  <button class="big" id="go">Empezar 🚀</button>`);
+  $('#go').onclick=()=>{S.name=($('#nm').value.trim()||'MiModSinNombre');chooseType()};
+}
+function chooseType(){
+  screen(hud()+`<h1>¿Qué tipo de mod es?</h1>`+TYPES.map((t,i)=>`<div class="card"><button data-i="${i}">${t.n}</button><div class="m">${t.d}</div></div>`).join(''));
+  document.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{S.type=TYPES[b.dataset.i];S.q+=S.type.b;S.log.push([S.type.n,S.type.b]);step()});
+}
+function step(){
+  if(S.round>=STEPS.length)return arena();
+  const st=STEPS[S.round];
+  screen(hud()+`<div class="m">Paso ${S.round+1}/${STEPS.length}</div><div class="bar"><i style="width:${S.round/STEPS.length*100}%"></i></div>
+  <h1>${st.t}</h1>`+st.o.map((o,i)=>`<div><button data-i="${i}" style="width:100%;text-align:left">${o[0]}</button></div>`).join(''));
+  document.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{
+    const o=st.o[b.dataset.i];S.q+=o[1];S.log.push([o[2],o[1]]);S.round++;step();
+  });
+}
+
+// minijuego: arreglar bugs antes de que el moderador los vea
+function arena(){
+  let t=20,fixed=0,missed=0,hit=0;
+  screen(hud()+`<h1>🐛 Revisión técnica</h1>
+  <p class="m">Clic en los <b class="no">bugs rojos</b> para arreglarlos. NO toques las <b style="color:var(--y)">mejoras amarillas</b> (son features, ¡déjalas!).</p>
+  <div class="m">Tiempo: <b id="tm">20</b>s · Arreglados: <b id="fx">0</b> · Errores: <b id="er">0</b></div>
+  <div id="arena"></div>`);
+  const ar=$('#arena');
+  const BAD=['NullPointerException','crash al abrir','textura morada','memory leak','lag 3 FPS','typo en lang','duplica ítems','mixin roto'];
+  const GOOD=['nueva feature','modo sin lag','config bonita','compat con otros mods'];
+  function spawn(){
+    const bad=Math.random()<.7,e=document.createElement('div');
+    e.className='bug '+(bad?'bad':'good');e.textContent=bad?pick(BAD):pick(GOOD);
+    e.style.left=Math.random()*70+'%';e.style.top='-30px';ar.appendChild(e);
+    let y=-30;const sp=40+Math.random()*50+S.round;
+    const iv=setInterval(()=>{y+=sp/30;e.style.top=y+'px';if(y>300){clearInterval(iv);e.remove();if(bad){missed++;$('#er').textContent=missed+hit}}},33);
+    e.onclick=()=>{clearInterval(iv);e.remove();if(bad){fixed++;$('#fx').textContent=fixed}else{hit++;$('#er').textContent=missed+hit}};
+  }
+  const sp=setInterval(spawn,650);
+  const tm=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0){clearInterval(tm);clearInterval(sp);const d=fixed*2-missed*2-hit*4;S.q+=d;S.log.push([`Revisión técnica: ${fixed} bugs arreglados, ${missed} se escaparon, ${hit} features rotas`,d]);verdict()}},1000);
+}
+
+const REJ=['Tu mod no cumple las reglas de contenido. Vuelve a leerlas con calma. 🧘',
+ 'Rechazado: la descripción parece escrita por un gato caminando sobre el teclado. 🐈',
+ 'Rechazado: tu mod ya existe, y es mejor. Perdón, no perdón. 💀',
+ 'Rechazado: ve a leer la guía de publicación. Sí, existe. 📚',
+ 'Rechazado: crasheó al abrir. Dos veces. Con ganas. 💥'];
+const ACC=['¡Aprobado! Tu mod ya está público. Felicidades, ya puedes presumir. 🏆',
+ '¡Aceptado! El moderador dijo "ok, está decente". Eso es amor puro. 😭',
+ '¡Aprobado a la primera! Seguro hay un bug escondido, pero ya fue. 🔥',
+ '¡Aceptado! Ya puedes tener 3 descargas, 2 son tuyas. 🤣'];
+
+function verdict(){
+  screen(hud()+`<h1>⏳ En revisión...</h1><div class="card"><div class="m" id="w">El moderador está abriendo tu .jar</div><div class="bar"><i id="pb" style="width:0%"></i></div></div>`);
+  const lines=['El moderador está abriendo tu .jar','Leyendo la descripción 👀','Revisando la licencia ⚖️','Probando el mod en su PC','Tomando café ☕','Escribiendo el veredicto...'];
+  let i=0;const iv=setInterval(()=>{i++;$('#pb').style.width=i/lines.length*100+'%';if(i<lines.length)$('#w').textContent=lines[i];else{clearInterval(iv);end()}},700);
+}
+function end(){
+  const luck=Math.round((Math.random()-.5)*30),score=Math.max(0,Math.round(S.q+luck+50)),ok=score>=95;
+  if(score>S.best){S.best=score;try{localStorage.setItem('best',score)}catch(e){}}
+  const why=S.log.filter(l=>l[1]<0).slice(0,4).map(l=>`<li class="no">${l[0]} (${l[1]})</li>`).join('')||'<li class="ok">Nada malo, crack 😎</li>';
+  const good=S.log.filter(l=>l[1]>0).slice(0,5).map(l=>`<li class="ok">${l[0]} (+${l[1]})</li>`).join('');
+  screen(hud()+`<div class="stamp ${ok?'ok':'no'}">${ok?'✅ ACEPTADO':'❌ RECHAZADO'}</div>
+  <div class="card"><b>Mensaje del moderador:</b><p>${ok?pick(ACC):pick(REJ)}</p>
+   <p class="m">Puntaje: <b>${score}</b> (necesitas 95) · Suerte del dado: ${luck>=0?'+':''}${luck} 🎲</p></div>
+  <div class="card"><b>Lo bueno</b><ul>${good||'<li class="m">Nada...</li>'}</ul><b>Lo malo</b><ul>${why}</ul></div>
+  <button class="big" id="re">Intentar con otro mod 🔁</button>`);
+  $('#re').onclick=start;
+}
+start();
+})();
+</script>
+</body>
+</html>
