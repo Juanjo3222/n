@@ -100,6 +100,7 @@ function arena(){
   <div class="m">Tiempo: <b id="tm">20</b>s · Arreglados: <b id="fx">0</b> · Errores: <b id="er">0</b></div>
   <div id="arena"></div>`);
   const ar=$('#arena');
+  const er=()=>{const x=$('#er');if(x)x.textContent=missed+hit};
   const BAD=['NullPointerException','crash al abrir','textura morada','memory leak','lag 3 FPS','typo en lang','duplica ítems','mixin roto'];
   const GOOD=['nueva feature','modo sin lag','config bonita','compat con otros mods'];
   function spawn(){
@@ -107,8 +108,8 @@ function arena(){
     e.className='bug '+(bad?'bad':'good');e.textContent=bad?pick(BAD):pick(GOOD);
     e.style.left=Math.random()*70+'%';e.style.top='-30px';ar.appendChild(e);
     let y=-30;const sp=40+Math.random()*50+S.round;
-    const iv=setInterval(()=>{y+=sp/30;e.style.top=y+'px';if(y>300){clearInterval(iv);e.remove();if(bad){missed++;$('#er').textContent=missed+hit}}},33);
-    e.onclick=()=>{clearInterval(iv);e.remove();if(bad){fixed++;$('#fx').textContent=fixed}else{hit++;$('#er').textContent=missed+hit}};
+    const iv=setInterval(()=>{if(!e.isConnected){clearInterval(iv);return}y+=sp/30;e.style.top=y+'px';if(y>300){clearInterval(iv);e.remove();if(bad){missed++;er()}}},33);
+    e.onclick=()=>{clearInterval(iv);e.remove();if(bad){fixed++;const f=$('#fx');if(f)f.textContent=fixed}else{hit++;er()}};
   }
   const sp=setInterval(spawn,650);
   const tm=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0){clearInterval(tm);clearInterval(sp);const d=fixed*2-missed*2-hit*4;S.q+=d;S.log.push([`Revisión técnica: ${fixed} bugs arreglados, ${missed} se escaparon, ${hit} features rotas`,d]);verdict()}},1000);
